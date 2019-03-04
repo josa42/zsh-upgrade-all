@@ -58,6 +58,12 @@ upgrade-all() {
     )
   fi
 
+  if shouldRun 'softwareupdate'; then
+    tasks+=(
+      'softwareupdate -i -a'
+    )
+  fi
+
   if shouldRun 'npm' && installed 'jq'; then
     tasks+=(
       'npm list -g --parseable --json 2>/dev/null | jq -r ".dependencies | keys | .[]" | xargs npm install -g && npm cache verify'
