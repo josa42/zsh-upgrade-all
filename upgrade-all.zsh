@@ -3,6 +3,10 @@
 upgrade-all() {
 
   local tasks=()
+  local configDisable=("${UPGRADE_ALL_DISABLE[@]}")
+  local configEnable=("${UPGRADE_ALL_ENABLE[@]}")
+  local configNonParallel=$UPGRADE_ALL_NON_PARALLEL
+  local dryRun=$UPGRADE_ALL_DRY_RUN
 
   installed() {
     if ! type "$1" > /dev/null; then
@@ -15,7 +19,17 @@ upgrade-all() {
     local key="$1"
     local e
 
-    for e in "${UPGRADE_ALL_DISABLE[@]}"; do
+    if [[ "$configEnable" != "" ]]; then
+      for e in "${configEnable[@]}"; do
+        if [[ "$e" == "$key" ]]; then
+          return 0
+        fi
+      done
+
+      return 1
+    fi
+
+    for e in "${configDisable[@]}"; do
       if [[ "$e" == "$key" ]]; then
         return 1
       fi
@@ -36,8 +50,7 @@ upgrade-all() {
   }
 
   if ! installed 'tmux'; then
-    echo "tmux is required!"
-    exit 1
+    configNonParallel=true
   fi
 
   if shouldRun 'brew'; then
@@ -88,20 +101,36 @@ upgrade-all() {
     )
   fi
 
-  local session=""
-  for task in "${tasks[@]}"; do
-    if [[ "$session" = "" ]]; then
-      session="upgrades"
-      # echo run
-      tmux new-session -d -s $session "echo '$task'; time $task"
-      tmux select-window -t upgrades:0
-      # tmux setw remain-on-exit on
-    else
-      tmux new-window "echo '$task'; $task"
-      # tmux setw remain-on-exit on
-    fi
-    tmux select-layout
-  done
+  # Dry Run: Print Commands, but do not run them
+  if [[ "$dryRun" = "true" ]]; then
+    for task in "${tasks[@]}"; do
+      echo $task
+    done
 
-  tmux attach-session -t $session
+  # Non Paralell: Run commands sequancially without tmux
+  elif [[ "$configNonParallel" = "true" ]]; then
+    for task in "${tasks[@]}"; do
+      echo $task
+      /bin/sh -c $task
+    done
+
+  # Defaul: Run commnds in parallel via tmux
+  else
+    local session=""
+    for task in "${tasks[@]}"; do
+      if [[ "$session" = "" ]]; then
+        session="upgrades"
+        # echo run
+        tmux new-session -d -s $session "echo '$task'; $task"
+        tmux select-window -t upgrades:0
+        # tmux setw remain-on-exit on
+      else
+        tmux new-window "echo '$task'; $task"
+        # tmux setw remain-on-exit on
+      fi
+      tmux select-layout
+    done
+
+    tmux attach-session -t $session
+  fi
 }
