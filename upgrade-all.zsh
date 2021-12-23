@@ -114,23 +114,25 @@ upgrade-all() {
       /bin/sh -c $task
     done
 
-  # Defaul: Run commnds in parallel via tmux
+  # Default: Run commands in parallel via tmux
   else
-    local session=""
+    local session='upgrades'
     for task in "${tasks[@]}"; do
-      if [[ "$session" = "" ]]; then
-        session="upgrades"
-        # echo run
-        tmux new-session -d -s $session "echo '$task'; $task"
-        tmux select-window -t upgrades:0
-        # tmux setw remain-on-exit on
-      else
-        tmux new-window "echo '$task'; $task"
-        # tmux setw remain-on-exit on
-      fi
-      tmux select-layout
+      create-window "${session}" "${task}"
     done
 
-    tmux attach-session -t $session
+    # tmux attach-session -t $session
   fi
+}
+
+create-window() {
+  session="$1"
+  cmd="$2"
+
+  if ! tmux has-session -t "$session" 2> /dev/null; then
+    tmux new-session -d -s "${session}" -n "$cmd" 'tmux setw remain-on-exit on; echo '$cmd'; $cmd'
+  else
+    tmux new-window -t "${session}:" -n "$cmd" "tmux setw remain-on-exit on; echo '$cmd'; $cmd"
+  fi
+  sleep 0.1
 }
