@@ -61,7 +61,7 @@ upgrade-all() {
 
  if shouldRun 'brew' 'cask'; then
     tasks+=(
-      'for app in $(brew cask outdated); do brew cask reinstall $app; done'
+      'for app in $(brew outdated --casks --quiet); do brew cask reinstall $app; done'
     )
   fi
 
